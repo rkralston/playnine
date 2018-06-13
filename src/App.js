@@ -4,7 +4,7 @@ import './App.css';
 import _ from 'lodash';
 
 const Stars = (props) => {
-  //const numberOfStars = 1 + Math.floor(Math.random()*9);
+  //const numberOfStars = Game.randomNumber();
 
   return (
     <div className='col-5'>
@@ -16,10 +16,36 @@ const Stars = (props) => {
 };
 
 const Button = (props) => {
+  let button;
+  switch(props.answerIsCorrect) {
+    case true:
+      button = 
+        <button className='btn btn-success' onClick={props.acceptAnswer} >
+          <i className='fa fa-check'></i>
+        </button>;
+      break;
+    case false:
+      button = 
+        <button className='btn btn-danger' >
+          <i className='fa fa-times'></i>
+        </button>;
+      break;
+    default:
+      button = 
+        <button className='btn btn-primary' 
+                onClick={props.checkAnswer}
+                disabled={props.selectedNumbers.length === 0}>
+          =
+        </button>;
+      break;
+  }
   return (
-    <div className='col-2'>
-      <button className='btn btn-primary' disabled={props.selectedNumbers.length === 0}>
-        =
+    <div className='col-2 test-center'>
+      {button}
+      <br /><br />
+      <button className='btn btn-warning btn-sm' onClick={props.redraw}
+              disabled={props.redraws === 0}>
+        <i className='fa fa-refresh'></i> {props.redraws}
       </button>
     </div>
   );
@@ -42,6 +68,9 @@ const Numbers = (props) => {
     if(props.selectedNumbers.indexOf(number) >= 0) {
       return 'selected';
     }
+    if(props.usedNumbers.indexOf(number) >= 0) {
+      return 'used';
+    }
   }
   return (
     <div className='card text-center'>
@@ -57,30 +86,91 @@ const Numbers = (props) => {
   );
 }
 
-Numbers.list = _.range(0,10);
+Numbers.list = _.range(1,10);
+
+const DoneFrame = (props) => {
+  return(
+    <div className='center-text'>
+      <h2>{props.doneStatus}</h2>
+    </div>
+  )
+}
 
 class Game extends Component{
+  static randomNumber = () => 1 + Math.floor(Math.random()*9);
   state = {
     selectedNumbers: [],
-    randomNumberOfStars: 1 + Math.floor(Math.random()*9),
+    randomNumberOfStars: Game.randomNumber(),
+    answerIsCorrect: null,
+    usedNumbers: [],
+    redraws: 5,
+    doneStatus: "Game Over!",
   };
 
   selectNumber = (clickedNumber) => {
     if(this.state.selectedNumbers.indexOf(clickedNumber) >= 0) {return;}
     this.setState(prevState => ({
+      answerIsCorrect: null,
       selectedNumbers: prevState.selectedNumbers.concat(clickedNumber)
     }));
   };
 
   unselectNumber = (clickedNumber) => {
     this.setState(prevState => ({
+      answerIsCorrect: null,
       selectedNumbers: prevState.selectedNumbers
                             .filter(number => number !== clickedNumber)
     }))
-  }
+  };
+
+  checkAnswer = () => {
+    this.setState(prevState => ({
+      answerIsCorrect: prevState.randomNumberOfStars ===
+        prevState.selectedNumbers.reduce((acc, n) => acc + n, 0)
+    }));
+  };
+
+  acceptAnswer = () => {
+    this.setState(prevState => ({
+      usedNumbers: prevState.usedNumbers.concat(prevState.selectedNumbers),
+      selectedNumbers: [],
+      answerIsCorrect: null,
+      randomNumberOfStars: Game.randomNumber(),
+    }));
+  };
+
+  redraw = () => {
+    if(this.state.redraws === 0) {return;}
+    this.setState(prevState => ({
+      selectedNumbers: [],
+      answerIsCorrect: null,
+      randomNumberOfStars: Game.randomNumber(),
+      redraws: prevState.redraws - 1,
+    }));
+  };
+
+  
+
+  updateDoneStatus = () => {
+    this.setState(prevState => {
+      if(prevState.usedNumbers.length === 9){
+        return {doneStatus: 'Nicely Done!'};
+      }
+      if(prevState.redraws === 0 && !this.possibleSolutions(prevState)){
+        return {doneStatus: 'Game Over!'};
+      }
+    });
+  };
 
   render() {
-    const { selectedNumbers, randomNumberOfStars} = this.state;
+    const { 
+      selectedNumbers, 
+      randomNumberOfStars, 
+      answerIsCorrect,
+      usedNumbers,
+      redraws,
+      doneStatus,
+    } = this.state;
 
     return (
       <div className='container'>
@@ -90,13 +180,22 @@ class Game extends Component{
         </header>
         <div className='row'>
           <Stars numberOfStars={randomNumberOfStars} />
-          <Button selectedNumbers={selectedNumbers} />
+          <Button selectedNumbers={selectedNumbers}
+                  checkAnswer={this.checkAnswer}
+                  redraw={this.redraw}
+                  redraws={redraws}
+                  acceptAnswer={this.acceptAnswer}
+                  answerIsCorrect={answerIsCorrect} />
           <Answer selectedNumbers={selectedNumbers}
                   unselectNumber={this.unselectNumber} />
         </div>
         <br />
-        <Numbers selectedNumbers={selectedNumbers}
-                  selectNumber={this.selectNumber} />
+        {doneStatus ? 
+          <DoneFrame doneStatus={doneStatus} />:
+          <Numbers selectedNumbers={selectedNumbers}
+                  selectNumber={this.selectNumber}
+                  usedNumbers={usedNumbers}  />
+        }
       </div>
     )
   }
